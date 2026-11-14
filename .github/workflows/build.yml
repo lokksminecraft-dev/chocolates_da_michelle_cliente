@@ -16,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # --- COLE AQUI OS DADOS DO SEU FIREBASE ---
-      FB_API_KEY: "COLE_AQUI"
-      FB_AUTH_DOMAIN: "SEU-PROJETO.firebaseapp.com"
-      FB_PROJECT_ID: "SEU-PROJETO"
-      FB_STORAGE_BUCKET: "SEU-PROJETO.appspot.com"
-      FB_SENDER_ID: "000000000000"
-      FB_APP_ID: "COLE_AQUI"
+      FB_API_KEY: "AIzaSyDilFWrT-ZBgQk1EMCBdltzpmN1yv2dpO4"
+      FB_AUTH_DOMAIN: "chocolates-da-michelle.firebaseapp.com"
+      FB_PROJECT_ID: "chocolates-da-michelle"
+      FB_STORAGE_BUCKET: "chocolates-da-michelle.firebasestorage.app"
+      FB_SENDER_ID: "34806209865"
+      FB_APP_ID: "1:34806209865:web:256f580561aa845e7e8e98"
       # --- NOME E IDENTIFICADOR DO APP ---
       APP_NAME: "Chocolates da Michelly"
       APP_ID: "com.chocolatesmichelly.cliente"
