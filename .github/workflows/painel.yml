@@ -47,7 +47,8 @@ jobs:
             "dependencies": {
               "@capacitor/core": "6.1.2",
               "@capacitor/cli": "6.1.2",
-              "@capacitor/android": "6.1.2"
+              "@capacitor/android": "6.1.2",
+              "@capacitor/local-notifications": "^6.0.0"
             }
           }
           EOF
@@ -1055,6 +1056,15 @@ jobs:
           firebase.initializeApp(FIREBASE_CONFIG);
           const db=firebase.firestore(),auth=firebase.auth(),cfgRef=db.doc("config/main");
           let cfg={...DEF},loaded=false,cfgOk=false,user=null,orders=[],ready=false,tab="orders",unsubO=null,confirmKey=null,loginErr="",tt=null;
+          const LN=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+          let notifOn=null;
+          async function notifInit(ask){if(!LN){notifOn="web";return}
+          try{let p=await LN.checkPermissions();if(p.display!=="granted"&&ask)p=await LN.requestPermissions();notifOn=p.display==="granted";
+          if(notifOn)await LN.createChannel({id:"pedidos",name:"Novos pedidos",description:"Aviso de cada pedido feito pelos clientes",importance:5,visibility:1,vibration:true})}catch(e){notifOn=false}
+          if(tab==="set"&&!busy())render(false)}
+          async function notify(o){if(!LN||notifOn!==true)return false;
+          try{await LN.schedule({notifications:[{id:Math.floor(Math.random()*2e9),title:"🔔 Novo pedido!",body:(o.name||"Cliente")+" · "+money(o.total)+(o.lines?"\n"+o.lines:""),channelId:"pedidos"}]});return true}catch(e){return false}}
+          const nstat=()=>notifOn==="web"?"Disponível só no app instalado no celular.":notifOn===true?"Ativadas ✓ Você recebe um aviso a cada novo pedido.":notifOn===false?"Desativadas. Toque em Ativar e permita. Se o pedido de permissão não aparecer, ative em Configurações do Android > Apps > Painel Michelly > Notificações.":"Verificando…";
           function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("show"),2200)}
           function save(){if(!cfgOk){toast("Cardápio não carregou. Reabra o app.");return}cfgRef.set(cfg).then(()=>toast("Salvo ✓")).catch(()=>toast("Erro ao salvar. Confira a internet."))}
           const busy=()=>{const a=document.activeElement;return a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)};
@@ -1071,7 +1081,7 @@ jobs:
           function vMenu(){return `<button class="add" data-add="items">+ Novo doce</button>`+(cfg.items.length?cfg.items.map((i,k)=>`<div class="ed" data-id="${i.id}" data-l="items" style="--d:${Math.min(k,8)*60}ms"><div class="edh"><div class="thumb" style="--c:${pal(i.name)}"><span>${emo(i.name)}</span></div><div class="grow">${esc(i.name)||"Novo doce"}</div><label style="margin:0;display:flex;align-items:center;gap:8px">Visível <input type="checkbox" class="sw" data-f="on" ${i.on!==false?"checked":""}></label></div><label>Nome</label><input data-f="name" value="${esc(i.name)}"><label>Descrição</label><input data-f="desc" value="${esc(i.desc)}"><div class="g2"><div><label>Preço (R$)</label><input data-f="price" type="number" inputmode="decimal" step="0.01" value="${esc(i.price)}"></div><div><label>Promoção (R$)</label><input data-f="promo" type="number" inputmode="decimal" step="0.01" placeholder="sem promoção" value="${esc(i.promo||"")}"></div></div><div class="acts">${delBtn("items",i.id)}</div></div>`).join(""):empty("🍰","Cardápio vazio","Toque em “Novo doce” para cadastrar o primeiro."))}
           function vNews(){return `<button class="add" data-add="news">+ Nova novidade</button>`+(cfg.news.length?cfg.news.slice().reverse().map((n,k)=>`<div class="ed" data-id="${n.id}" data-l="news" style="--d:${Math.min(k,8)*60}ms"><label>Título</label><input data-f="title" value="${esc(n.title)}"><label>Texto</label><textarea data-f="text" rows="3">${esc(n.text)}</textarea><div class="acts">${delBtn("news",n.id)}</div></div>`).join(""):empty("✨","Sem novidades","Publique um sabor novo ou um aviso para os clientes."))}
           function vDates(){return `<button class="add" data-add="dates">+ Nova data</button>`+(cfg.dates.length?cfg.dates.slice().sort((a,b)=>a.date<b.date?-1:1).map((d,k)=>`<div class="ed" data-id="${d.id}" data-l="dates" style="--d:${Math.min(k,8)*60}ms"><label>Título</label><input data-f="title" value="${esc(d.title)}"><div class="g2"><div><label>Data</label><input data-f="date" type="date" value="${esc(d.date)}"></div><div><label>Tipo</label><select data-f="kind" style="width:100%;border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:16px;padding:12px;font:inherit;margin:0"><option value="comem" ${d.kind==="comem"?"selected":""}>Comemorativa</option><option value="esp" ${d.kind==="esp"?"selected":""}>Especial da loja</option></select></div></div><label>Observação</label><input data-f="note" value="${esc(d.note||"")}"><div class="acts">${delBtn("dates",d.id)}</div></div>`).join(""):empty("🎈","Nenhuma data","Cadastre datas comemorativas e dias especiais da loja."))}
-          function vSet(){return `<div class="ed"><label for="k1">Nome da loja</label><input id="k1" data-k="name" value="${esc(cfg.name)}"><label for="k2">Aviso que rola no topo do app (vazio = sem aviso)</label><input id="k2" data-k="notice" value="${esc(cfg.notice)}"></div><p class="hint">Tudo que você muda aqui aparece no app dos clientes na hora.</p><div class="ed"><div class="meta" style="color:var(--mut)">Conectado como<br><b style="color:var(--ink)">${esc(user.email)}</b></div><div class="acts"><button class="btn d" id="out">Sair do painel</button></div></div>`}
+          function vSet(){return `<div class="ed"><label for="k1">Nome da loja</label><input id="k1" data-k="name" value="${esc(cfg.name)}"><label for="k2">Aviso que rola no topo do app (vazio = sem aviso)</label><input id="k2" data-k="notice" value="${esc(cfg.notice)}"></div><p class="hint">Tudo que você muda aqui aparece no app dos clientes na hora.</p><div class="ed"><h3>🔔 Notificações de pedidos</h3><p class="hint" style="margin:6px 0 0">${nstat()}</p><div class="acts"><button class="btn p" id="nt-ask">Ativar</button><button class="btn" id="nt-test">Testar</button></div><p class="hint" style="margin:10px 0 0">Dica: deixe o painel aberto ou minimizado (não feche deslizando para cima) e, nas configurações do Android, deixe a bateria do app como “Sem restrições”.</p></div><div class="ed"><div class="meta" style="color:var(--mut)">Conectado como<br><b style="color:var(--ink)">${esc(user.email)}</b></div><div class="acts"><button class="btn d" id="out">Sair do painel</button></div></div>`}
           function nav(){if(!user){$("#nav").innerHTML="";$("#nav").style.display="none";return}$("#nav").style.display="flex";const n=pend().length;
           $("#nav").innerHTML=[["orders","🧾","Pedidos"],["menu","🍰","Cardápio"],["news","✨","Novidades"],["dates","🎈","Datas"],["set","⚙️","Ajustes"]].map(x=>`<button data-t="${x[0]}" class="${tab===x[0]?"on":""}" aria-label="${x[2]}"><i>${x[1]}</i><span>${x[2]}</span>${x[0]==="orders"&&n?`<b class="badge">${n}</b>`:""}</button>`).join("")}
           function render(anim){$("#hero").className=user?"sm":"";$("#hp").textContent=user?cfg.name:"Entre para gerenciar pedidos, cardápio e avisos.";nav();
@@ -1083,6 +1093,8 @@ jobs:
           if(d.t){tab=d.t;confirmKey=null;vib();render(true);return}
           if(b.id==="in"){const em=$("#le").value.trim(),pw=$("#lp").value;if(!em||!pw){loginErr="Digite seu e-mail e senha.";render(false);return}
           b.disabled=true;b.textContent="Entrando…";auth.signInWithEmailAndPassword(em,pw).catch(()=>{loginErr="E-mail ou senha incorretos.";render(false);const f=$(".form");f.classList.add("shake")});return}
+          if(b.id==="nt-ask"){notifInit(true).then(()=>toast(notifOn===true?"Notificações ativadas ✓":"Não foi possível ativar"));return}
+          if(b.id==="nt-test"){if(notifOn!==true){toast("Ative as notificações primeiro");return}notify({name:"Cliente de teste",total:0,lines:"Esta é uma notificação de teste"}).then(ok=>toast(ok?"Teste enviado ✓":"Falhou ao enviar"));return}
           if(b.id==="out"){auth.signOut();return}
           if(d.add){const n=newItem(d.add);if(d.add==="news")cfg.news.push(n);else if(d.add==="items")cfg.items.unshift(n);else cfg.dates.push(n);save();vib();render(true);return}
           if(d.del){const k=d.l+d.del;if(confirmKey===k){cfg[d.l]=cfg[d.l].filter(x=>x.id!==d.del);confirmKey=null;save();render(false)}else{confirmKey=k;render(false);setTimeout(()=>{if(confirmKey===k){confirmKey=null;if(!busy())render(false)}},3000)}return}
@@ -1093,8 +1105,8 @@ jobs:
           if(t.dataset.f){const c=t.closest("[data-id]"),it=cfg[c.dataset.l].find(x=>x.id===c.dataset.id);if(!it)return;
           it[t.dataset.f]=t.type==="checkbox"?t.checked:(t.type==="number"?(t.value===""?"":Number(t.value)):t.value);save()}});
           cfgRef.onSnapshot(s=>{if(s.exists)cfg={...DEF,...s.data()};cfgOk=true;loaded=true;if(!busy())render(false)},()=>{loaded=true;render(false)});
-          auth.onAuthStateChanged(u=>{user=u;loginErr="";if(unsubO){unsubO();unsubO=null}orders=[];ready=false;
-          if(u)unsubO=db.collection("orders").orderBy("ts","desc").onSnapshot(q=>{if(ready)q.docChanges().forEach(c=>{if(c.type==="added"){toast("🔔 Novo pedido!");vib()}});orders=q.docs.map(d=>({id:d.id,...d.data()}));ready=true;if(!busy())render(false)},()=>{});
+          auth.onAuthStateChanged(u=>{user=u;loginErr="";if(unsubO){unsubO();unsubO=null}orders=[];ready=false;if(u)notifInit(true);
+          if(u)unsubO=db.collection("orders").orderBy("ts","desc").onSnapshot(q=>{if(ready)q.docChanges().forEach(c=>{if(c.type==="added"){toast("🔔 Novo pedido!");vib();notify(c.doc.data())}});orders=q.docs.map(d=>({id:d.id,...d.data()}));ready=true;if(!busy())render(false)},()=>{});
           render(true)});
           render(true);
           </script>
