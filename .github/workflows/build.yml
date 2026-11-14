@@ -1083,15 +1083,26 @@ jobs:
         run: |
           npm install
           npx cap add android
+          npx cap sync android
 
       - name: Criar o icone do app com a logo
+        continue-on-error: true
         working-directory: app
         run: |
-          IM=$(command -v magick || command -v convert)
           mkdir -p assets
-          $IM www/logo.png -resize 1024x1024 assets/icon-only.png
-          $IM www/logo.png -resize 680x680 -background none -gravity center -extent 1024x1024 assets/icon-foreground.png
-          $IM -size 1024x1024 xc:white assets/icon-background.png
+          npm install --no-save sharp
+          cat > icons.js <<'EOF'
+          const sharp = require("sharp");
+          (async () => {
+            await sharp("www/logo.png").resize(1024, 1024).toFile("assets/icon-only.png");
+            await sharp("www/logo.png").resize(680, 680)
+              .extend({ top: 172, bottom: 172, left: 172, right: 172, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+              .toFile("assets/icon-foreground.png");
+            await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "#ffffff" } })
+              .png().toFile("assets/icon-background.png");
+          })();
+          EOF
+          node icons.js
           npx --yes @capacitor/assets generate --android
           npx cap sync android
 
